@@ -1,0 +1,19 @@
+# Python test artifacts
+.hypothesis/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local validation module and tests (not shipped with governance kit)
+tests/
+scripts/governance_validator.py
+requirements-dev.txt
+
+# Mac folders
+.DS_Store
+
+# Old-format hooks (source of truth is global/hooks/*.json)
+.kiro/hooks/
+
+# Install logs
+scripts/.install-log-*

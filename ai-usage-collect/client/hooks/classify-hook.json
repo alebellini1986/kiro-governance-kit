@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "AI Usage Classify",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Analyze the session that just completed. Determine: 1) category from {debug, feature, review, ops, learning, refactor, security, incident, uncategorized}. 2) session_credits: the estimated credits used in this session (check 'Est. Credits Used' in the UI). 3) Up to 6 cost allocation tags by inferring from context. These are customizable labels defined in ~/.ai-usage/allowed_tags.json — use the values configured there. If no allowed_tags.json exists or tags are not configured, leave them empty. 4) auto_tags (comma-separated keywords describing the work), skills_activated, steering_loaded, mcp_servers_used, tool_calls (count of tool invocations). Then invoke: ~/.local/bin/ai-usage-collect --category <category> --session-credits <credits> --cost-tag-1 '<tag1>' --cost-tag-2 '<tag2>' --cost-tag-3 '<tag3>' --cost-tag-4 '<tag4>' --cost-tag-5 '<tag5>' --cost-tag-6 '<tag6>' --auto-tags '<tags>' --skills '<skills>' --steering '<steering>' --mcp-servers '<servers>' --tool-calls <count>. If the script is not found or config is missing, do nothing silently."
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "version": "v1",
+  "hooks": [{
+    "name": "Governance Heartbeat",
+    "trigger": "SessionStart",
+    "action": {
+      "type": "command",
+      "command": "bash $HOME/.kiro/governance-scripts/heartbeat-run.sh"
+    }
+  }]
+}

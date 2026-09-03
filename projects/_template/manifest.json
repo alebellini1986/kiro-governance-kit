@@ -1,0 +1,11 @@
+{
+  "name": "",
+  "team": "",
+  "description": "",
+  "customizations": {
+    "steering": true,
+    "skills": false,
+    "hooks": true,
+    "mcp": true
+  }
+}

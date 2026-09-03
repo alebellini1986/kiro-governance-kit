@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Governance Sync Reminder",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "bash -c 'VFILE=\"$HOME/.kiro/governance-version.json\"; [ ! -f \"$VFILE\" ] && echo \"Governance Kit not installed. Run bootstrap.\" && exit 0; SYNCED=$(python3 -c \"import json; print(json.load(open(\\\"$VFILE\\\")).get(\\\"synced_at\\\",\\\"\\\"))\" 2>/dev/null || echo \"\"); [ -z \"$SYNCED\" ] && exit 0; DAYS_AGO=$(python3 -c \"from datetime import datetime,timezone; synced=datetime.fromisoformat(\\\"$SYNCED\\\".replace(\\\"Z\\\",\\\"+00:00\\\")); delta=(datetime.now(timezone.utc)-synced).days; print(delta)\" 2>/dev/null || echo 0); [ \"$DAYS_AGO\" -gt 14 ] && echo \"Governance config not synced for ${DAYS_AGO} days. Run: ~/.kiro/governance-sync\"; true'"
+      }
+    }
+  ]
+}

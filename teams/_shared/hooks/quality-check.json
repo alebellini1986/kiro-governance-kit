@@ -1,0 +1,12 @@
+{
+  "name": "Quality Check on Stop",
+  "version": "1.0.0",
+  "description": "Runs quality checks before the agent finishes work",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Before finishing, verify: 1) All modified files compile without errors 2) No TODOs left in the code 3) Tests pass. If something is wrong, fix it."
+  }
+}

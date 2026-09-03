@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "AI Usage Snapshot",
+      "trigger": "UserPromptSubmit",
+      "action": {
+        "type": "command",
+        "command": "mkdir -p ~/.ai-usage && if [ -f ~/.kiro/state/state.vscdb-tokens.jsonl ]; then wc -l < ~/.kiro/state/state.vscdb-tokens.jsonl | tr -d ' ' > ~/.ai-usage/.snapshot; else echo 0 > ~/.ai-usage/.snapshot; fi"
+      }
+    }
+  ]
+}

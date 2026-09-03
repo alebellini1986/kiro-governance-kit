@@ -1,0 +1,12 @@
+{
+  "name": "Skill Suggester",
+  "version": "1.0.0",
+  "description": "Analyzes the user's prompt and suggests relevant skills to activate for the request context",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the user's prompt and suggest relevant skills they could activate. Match keywords to available skills:\n\n## Skill Catalog\n\n### Governance & AWS\n- `#gov-tagging-naming` → tags, naming, conventions, AWS resources\n- `#gov-security-compliance` → security, audit, vulnerabilities, SG, IAM\n- `#gov-iam-access` → IAM, roles, policies, permissions, access\n- `#gov-network` → VPC, subnet, SG, endpoints, peering, networking\n- `#gov-cost-finops` → costs, budget, savings, reserved, spending\n- `#gov-operational-excellence` → monitoring, alerting, backup, DR, prod readiness\n- `#gov-change-management` → PR, deploy, release, change, rollback\n- `#gov-compliance-scorecard` → audit, compliance, score, check account\n\n### Workflow & Methodology\n- `#systematic-debugging` → bug, error, crash, fix, debug, not working\n- `#writing-plans` → plan, implementation, complex feature, multi-step\n- `#executing-plans` → execute plan, implement, proceed with plan\n- `#verification-before-completion` → verify, test, confirm, completed\n- `#brainstorming` → idea, design, proposal, how to, approach\n- `#finishing-branch` → merge, PR, branch, complete, push\n- `#subagent-development` → complex task, parallel, orchestration\n\n### Operations & Team\n- `#incident-postmortem` → incident, outage, post-mortem, RCA\n- `#cross-team` → who to contact, escalation, other team, support\n- `#team-onboarding-check` → setup, onboarding, verify installation\n- `#troubleshooting` → problem, not working, investigate, logs\n- `#pr-description` → PR, pull request, description\n\n## Rules\n1. Only suggest if prompt clearly matches a skill's domain (≥2 keyword matches)\n2. Suggest max 2-3 skills, ranked by relevance\n3. Format: brief one-line suggestion like: '💡 Useful skills: `#systematic-debugging` (methodical debug), `#gov-security-compliance` (SG audit)'\n4. If no skill matches clearly, say nothing (empty response)\n5. Never suggest skills for simple questions or chitchat\n6. If user already activated a skill (prompt starts with #), don't re-suggest it"
+  }
+}

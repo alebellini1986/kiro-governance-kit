@@ -1,0 +1,83 @@
+version: 0.2
+
+env:
+  variables:
+    S3_BUCKET: "kiro-governance-prod-artifacts"
+    TEAMS: "team-a,team-b,team-c,team-d,team-e"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "=== Install phase ==="
+
+  pre_build:
+    commands:
+      - echo "=== Validation phase ==="
+      - test -d global/steering || (echo "ERROR global/steering/ not found" && exit 1)
+      - test -d global/skills || (echo "ERROR global/skills/ not found" && exit 1)
+      - test -d global/hooks || (echo "ERROR global/hooks/ not found" && exit 1)
+      - test -d teams || (echo "ERROR teams/ not found" && exit 1)
+      - echo "Validating JSON hooks..."
+      - find global/hooks teams/*/hooks teams/_shared/hooks -name "*.json" -exec python3 -c "import json,sys; json.load(open(sys.argv[1])); print('  OK', sys.argv[1])" {} \; 2>/dev/null || true
+      - echo "Validation passed"
+
+  build:
+    commands:
+      - echo "=== Build phase ==="
+      - mkdir -p dist/latest/teams
+      - export BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      - export COMMIT_HASH=${CODEBUILD_RESOLVED_SOURCE_VERSION:-unknown}
+      - export VERSION="1.0.0-$(echo $COMMIT_HASH | cut -c1-8)"
+      - echo "Packaging global..."
+      - tar czf dist/latest/global.tar.gz -C . global/steering global/skills global/hooks
+      - echo "Packaging shared..."
+      - tar czf dist/latest/shared.tar.gz -C . teams/_shared/steering teams/_shared/skills teams/_shared/hooks 2>/dev/null || echo "No shared found"
+      - echo "Packaging teams..."
+      - |
+        IFS=',' read -ra TEAM_LIST <<< "$TEAMS"
+        for team in "${TEAM_LIST[@]}"; do
+          if [ -d "teams/$team" ]; then
+            TEAM_TMP="/tmp/team-$team"
+            rm -rf "$TEAM_TMP"
+            mkdir -p "$TEAM_TMP/steering" "$TEAM_TMP/skills" "$TEAM_TMP/hooks" "$TEAM_TMP/bin"
+            cp global/steering/*.md "$TEAM_TMP/steering/" 2>/dev/null || true
+            cp global/skills/*.md "$TEAM_TMP/skills/" 2>/dev/null || true
+            cp global/hooks/*.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+            cp teams/_shared/steering/*.md "$TEAM_TMP/steering/" 2>/dev/null || true
+            cp teams/_shared/skills/*.md "$TEAM_TMP/skills/" 2>/dev/null || true
+            cp teams/_shared/hooks/*.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+            cp "teams/$team/steering/"*.md "$TEAM_TMP/steering/" 2>/dev/null || true
+            cp "teams/$team/skills/"*.md "$TEAM_TMP/skills/" 2>/dev/null || true
+            cp "teams/$team/hooks/"*.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+            # Include ai-usage-collect client
+            if [ -f "ai-usage-collect/client/bin/ai-usage-collect" ]; then
+              cp ai-usage-collect/client/bin/ai-usage-collect "$TEAM_TMP/bin/"
+              cp ai-usage-collect/client/allowed_tags.json "$TEAM_TMP/bin/"
+              cp ai-usage-collect/client/bin/heartbeat-run.sh "$TEAM_TMP/bin/" 2>/dev/null || true
+              cp ai-usage-collect/client/hooks/classify-hook.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+              cp ai-usage-collect/client/hooks/snapshot-hook.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+              cp ai-usage-collect/client/hooks/governance-heartbeat.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+              cp ai-usage-collect/client/hooks/governance-sync-reminder.json "$TEAM_TMP/hooks/" 2>/dev/null || true
+            fi
+            tar czf "dist/latest/teams/$team.tar.gz" -C "$TEAM_TMP" .
+            echo "  OK $team"
+            rm -rf "$TEAM_TMP"
+          fi
+        done
+      - echo "Generating version.json..."
+      - python3 -c "import json,os; teams=[t for t in os.environ['TEAMS'].split(',') if os.path.isdir(f'teams/{t}')]; json.dump({'version':os.environ['VERSION'],'commit':os.environ['COMMIT_HASH'],'published_at':os.environ['BUILD_TIME'],'channel':'stable','teams':teams,'changelog':'Build from '+os.environ['COMMIT_HASH'][:8]},open('dist/latest/version.json','w'),indent=2)"
+      - cat dist/latest/version.json
+      - echo "Build complete"
+
+  post_build:
+    commands:
+      - echo "=== Publish phase ==="
+      - aws s3 sync dist/latest/ "s3://$S3_BUCKET/latest/" --exclude "quick-install.sh" --exclude "heartbeat-run.sh" --exclude "bootstrap.sh" --delete
+      - aws s3 sync dist/latest/ "s3://$S3_BUCKET/archive/$VERSION/"
+      - echo "Published to s3://$S3_BUCKET/latest/ and archive/$VERSION/"
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"

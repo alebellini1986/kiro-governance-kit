@@ -1,0 +1,13 @@
+{
+  "name": "Shell Safety Check",
+  "version": "1.0.0",
+  "description": "Checks shell commands before execution to prevent destructive actions",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["shell"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Verify that the shell command does NOT contain: rm -rf, kubectl delete, terraform destroy, docker system prune, or other destructive commands. If it does, BLOCK execution and ask the user for confirmation."
+  }
+}

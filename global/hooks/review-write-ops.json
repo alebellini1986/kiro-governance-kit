@@ -1,0 +1,13 @@
+{
+  "name": "Review Write Operations",
+  "version": "1.0.0",
+  "description": "Verifies that write operations comply with standards before executing them",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Before writing, verify: 1) The file does not contain credentials or secrets 2) The code follows project conventions 3) You are not overwriting important changes"
+  }
+}

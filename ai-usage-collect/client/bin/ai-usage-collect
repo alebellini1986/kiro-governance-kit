@@ -1,0 +1,163 @@
+#!/usr/bin/env zsh
+# AI Usage Collector Script
+# Collects session credits, builds event JSON, POSTs to API endpoint.
+# All errors exit 0 silently — never block the user's workflow.
+
+set +e
+trap 'rm -f "$LOCK_FILE" 2>/dev/null' EXIT
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+CONFIG_FILE="$HOME/.ai-usage/config.env"
+LOCK_FILE="$HOME/.ai-usage/.lock"
+
+# Source config or exit silently
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  exit 0
+fi
+source "$CONFIG_FILE"
+
+# Required config vars
+if [[ -z "$API_ENDPOINT" || -z "$API_KEY" || -z "$TEAM" ]]; then
+  exit 0
+fi
+
+# =============================================================================
+# Parse CLI arguments
+# =============================================================================
+
+CATEGORY="uncategorized"
+AUTO_TAGS=""
+SKILLS=""
+STEERING=""
+MCP_SERVERS=""
+TOOL_CALLS=0
+TAG_COST_ALLOCATED_1=""
+TAG_COST_ALLOCATED_2=""
+TAG_COST_ALLOCATED_3=""
+TAG_COST_ALLOCATED_4=""
+TAG_COST_ALLOCATED_5=""
+TAG_COST_ALLOCATED_6=""
+SESSION_CREDITS=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --category)             CATEGORY="$2"; shift 2 ;;
+    --auto-tags)            AUTO_TAGS="$2"; shift 2 ;;
+    --skills)               SKILLS="$2"; shift 2 ;;
+    --steering)             STEERING="$2"; shift 2 ;;
+    --mcp-servers)          MCP_SERVERS="$2"; shift 2 ;;
+    --tool-calls)           TOOL_CALLS="$2"; shift 2 ;;
+    --cost-tag-1)           TAG_COST_ALLOCATED_1="$2"; shift 2 ;;
+    --cost-tag-2)           TAG_COST_ALLOCATED_2="$2"; shift 2 ;;
+    --cost-tag-3)           TAG_COST_ALLOCATED_3="$2"; shift 2 ;;
+    --cost-tag-4)           TAG_COST_ALLOCATED_4="$2"; shift 2 ;;
+    --cost-tag-5)           TAG_COST_ALLOCATED_5="$2"; shift 2 ;;
+    --cost-tag-6)           TAG_COST_ALLOCATED_6="$2"; shift 2 ;;
+    --session-credits)      SESSION_CREDITS="$2"; shift 2 ;;
+    *)                      shift ;;
+  esac
+done
+
+# =============================================================================
+# Lock file protocol (TTL = 15 seconds)
+# =============================================================================
+
+if [[ -f "$LOCK_FILE" ]]; then
+  LOCK_AGE=$(( $(date +%s) - $(stat -f %m "$LOCK_FILE" 2>/dev/null || echo 0) ))
+  if [[ $LOCK_AGE -lt 15 ]]; then
+    exit 0
+  fi
+fi
+
+# Create lock
+echo $$ > "$LOCK_FILE"
+
+# =============================================================================
+# Validate cost allocation tags against allowed values (optional)
+# =============================================================================
+
+ALLOWED_TAGS_FILE="$HOME/.ai-usage/allowed_tags.json"
+
+if [[ -f "$ALLOWED_TAGS_FILE" ]]; then
+  VALIDATION_ERRORS=$(python3 -c "
+import json, sys
+
+with open('$ALLOWED_TAGS_FILE') as f:
+    allowed = json.load(f)
+
+errors = []
+checks = [
+    ('CostAllocated1', '''$TAG_COST_ALLOCATED_1''', 'cost-tag-1'),
+    ('CostAllocated2', '''$TAG_COST_ALLOCATED_2''', 'cost-tag-2'),
+    ('CostAllocated3', '''$TAG_COST_ALLOCATED_3''', 'cost-tag-3'),
+    ('CostAllocated4', '''$TAG_COST_ALLOCATED_4''', 'cost-tag-4'),
+    ('CostAllocated5', '''$TAG_COST_ALLOCATED_5''', 'cost-tag-5'),
+    ('CostAllocated6', '''$TAG_COST_ALLOCATED_6''', 'cost-tag-6'),
+]
+
+for tag_key, value, flag in checks:
+    if value and tag_key in allowed:
+        allowed_lower = [v.lower() for v in allowed[tag_key]]
+        if value.lower() not in allowed_lower:
+            errors.append(f'--{flag} \"{value}\" not in allowed values for {tag_key}')
+
+if errors:
+    print('\\n'.join(errors))
+" 2>/dev/null)
+
+  if [[ -n "$VALIDATION_ERRORS" ]]; then
+    echo "$VALIDATION_ERRORS" >&2
+    exit 0
+  fi
+fi
+
+# =============================================================================
+# Build Usage Event JSON
+# =============================================================================
+
+EVENT_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+USER_NAME="${USER:-unknown}"
+
+EVENT_JSON=$(python3 -c "
+import json
+event = {
+    'event_id': '$EVENT_ID',
+    'timestamp': '$TIMESTAMP',
+    'user': '$USER_NAME',
+    'team': '$TEAM',
+    'category': '$CATEGORY',
+    'session_credits': float('${SESSION_CREDITS:-0}' or '0'),
+    'auto_tags': '$AUTO_TAGS',
+    'skills_activated': '$SKILLS',
+    'steering_loaded': '$STEERING',
+    'mcp_servers_used': '$MCP_SERVERS',
+    'tool_calls': int('${TOOL_CALLS:-0}' or '0'),
+    'tag_cost_allocated_1': '$TAG_COST_ALLOCATED_1',
+    'tag_cost_allocated_2': '$TAG_COST_ALLOCATED_2',
+    'tag_cost_allocated_3': '$TAG_COST_ALLOCATED_3',
+    'tag_cost_allocated_4': '$TAG_COST_ALLOCATED_4',
+    'tag_cost_allocated_5': '$TAG_COST_ALLOCATED_5',
+    'tag_cost_allocated_6': '$TAG_COST_ALLOCATED_6',
+}
+print(json.dumps(event))
+" 2>/dev/null)
+
+if [[ -z "$EVENT_JSON" ]]; then
+  exit 0
+fi
+
+# =============================================================================
+# POST to API (background, fire-and-forget)
+# =============================================================================
+
+curl -s -X POST "$API_ENDPOINT" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
+  -d "$EVENT_JSON" \
+  > /dev/null 2>&1 &
+
+exit 0

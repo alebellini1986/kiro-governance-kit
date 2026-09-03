@@ -1,0 +1,13 @@
+{
+  "name": "Document New File",
+  "version": "1.0.0",
+  "description": "Suggests documentation when a new source file is created",
+  "when": {
+    "type": "fileCreated",
+    "patterns": ["src/**/*.ts", "src/**/*.py", "lib/**/*.ts"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Does the newly created file need documentation? Verify it has: a header comment with description, JSDoc/docstring for public functions, and comments for complex logic."
+  }
+}
